@@ -1,5 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 
+interface FormData {
+  name: string
+  email: string
+  phone: string
+  cep: string
+  cityState: string
+  color: string
+  size: string
+  source: string
+  observations: string
+}
+
 interface Player {
   name: string
   team: string
@@ -121,16 +133,58 @@ function App() {
     }
   }, [pulse])
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (selectedPlayer) {
-      alert(`Draft Realizado! Sua solicitação para ${selectedPlayer.name} foi enviada com sucesso. (Simulação de envio)`)
-    } else {
+    
+    if (!selectedPlayer) {
       alert('Por favor, selecione um jogador primeiro.')
+      return
     }
-    const target = e.target as HTMLFormElement
-    target.reset()
-    setSelectedPlayer(null)
+
+    setIsSubmitting(true)
+    setSubmitStatus('idle')
+
+    const formData = new FormData(e.currentTarget)
+    const data: FormData = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      phone: formData.get('phone') as string,
+      cep: formData.get('cep') as string,
+      cityState: formData.get('cityState') as string,
+      color: formData.get('color') as string,
+      size: formData.get('size') as string,
+      source: formData.get('source') as string,
+      observations: formData.get('observations') as string,
+    }
+
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerName: selectedPlayer.name,
+          team: selectedPlayer.team,
+          ...data
+        }),
+      })
+
+      if (response.ok) {
+        setSubmitStatus('success')
+        alert(`Draft Realizado! Sua solicitação para ${selectedPlayer.name} foi enviada com sucesso.`)
+        e.currentTarget.reset()
+        setSelectedPlayer(null)
+      } else {
+        throw new Error('Failed to send email')
+      }
+    } catch (error) {
+      setSubmitStatus('error')
+      alert('Erro ao enviar solicitação. Tente novamente mais tarde.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -321,24 +375,24 @@ function App() {
               <div className="grid md:grid-cols-2 gap-10">
                 <div className="space-y-1 group">
                   <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">Seu Nome Completo</label>
-                  <input className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="text"/>
+                  <input name="name" className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="text"/>
                 </div>
                 <div className="space-y-1 group">
                   <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">E-mail para Contato</label>
-                  <input className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="email"/>
+                  <input name="email" className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="email"/>
                 </div>
                 <div className="space-y-1 group">
                   <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">WhatsApp com DDD</label>
-                  <input className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" placeholder="(00) 00000-0000" required type="tel"/>
+                  <input name="phone" className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" placeholder="(00) 00000-0000" required type="tel"/>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="col-span-1 space-y-1 group">
                     <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">CEP</label>
-                    <input className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="text"/>
+                    <input name="cep" className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="text"/>
                   </div>
                   <div className="col-span-2 space-y-1 group">
                     <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">Cidade / Estado</label>
-                    <input className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="text"/>
+                    <input name="cityState" className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors" required type="text"/>
                   </div>
                 </div>
               </div>
@@ -381,7 +435,7 @@ function App() {
                 </div>
                 <div className="space-y-4">
                   <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">Onde nos conheceu?</label>
-                  <select className="w-full bg-surface-container-high border-b-2 border-outline-variant py-3 px-4 font-label text-xs uppercase focus:border-primary focus:ring-0 transition-colors">
+                  <select name="source" className="w-full bg-surface-container-high border-b-2 border-outline-variant py-3 px-4 font-label text-xs uppercase focus:border-primary focus:ring-0 transition-colors">
                     <option>Instagram</option>
                     <option>Twitter / X</option>
                     <option>Indicação</option>
@@ -391,10 +445,14 @@ function App() {
               </div>
               <div className="space-y-1">
                 <label className="block text-[10px] font-label font-black uppercase tracking-widest text-on-surface-variant">Observações do Pedido</label>
-                <textarea className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors resize-none" placeholder="Detalhes específicos sobre pose ou customização..." rows={3}></textarea>
+                <textarea name="observations" className="w-full bg-transparent border-b-2 border-outline-variant py-3 px-0 font-body focus:border-primary transition-colors resize-none" placeholder="Detalhes específicos sobre pose ou customização..." rows={3}></textarea>
               </div>
-              <button className="w-full bg-primary-container text-on-primary-container py-6 font-headline font-black text-2xl uppercase italic tracking-tighter hover:bg-primary transition-all flex items-center justify-center gap-4 group shadow-[0_20px_40px_rgba(247,107,28,0.2)] cursor-pointer" type="submit">
-                Solicitar meu Funko <span className="group-hover:translate-x-2 transition-transform">🏀</span>
+              <button 
+                className="w-full bg-primary-container text-on-primary-container py-6 font-headline font-black text-2xl uppercase italic tracking-tighter hover:bg-primary transition-all flex items-center justify-center gap-4 group shadow-[0_20px_40px_rgba(247,107,28,0.2)] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" 
+                type="submit"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Enviando...' : 'Solicitar meu Funko'} <span className="group-hover:translate-x-2 transition-transform">🏀</span>
               </button>
             </form>
           </div>
